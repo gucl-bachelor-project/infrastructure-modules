@@ -25,7 +25,14 @@ variable "do_vm_size" {
 }
 
 variable "authorized_ssh_keys" {
-  default     = []
+  default = []
+  # Reflect type as specified here: https://www.terraform.io/docs/providers/do/r/ssh_key.html
+  type = list(object({
+    id          = string
+    name        = string
+    public_key  = string
+    fingerprint = string
+  }))
   description = "List of authorized SSH keys (registered in DigitalOcean) for remote SSH access"
 }
 
