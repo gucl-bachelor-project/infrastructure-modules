@@ -36,16 +36,42 @@ variable "authorized_ssh_keys" {
   description = "List of authorized SSH keys (registered in DigitalOcean) for remote SSH access"
 }
 
-variable "aws_config" {
-  type = object({
-    region            = string
-    access_key_id     = string
-    secret_access_key = string
-  })
-  description = "AWS configuration to be installed for AWS CLI program"
+variable "extra_cloud_init_config" {
+  type        = string
+  description = "Cloud-init script for application specific configuration of VM to be run when it boots"
 }
 
-variable "app_start_script" {
+variable "ecr_base_url" {
   type        = string
-  description = "Cloud-init script to be run when the VM boots to start the application"
+  description = "" # TODO
+}
+
+variable "project_bucket_name" {
+  type        = string
+  description = "" # TODO
+}
+
+variable "compose_files_bucket_path" {
+  type        = string
+  description = "" # TODO: Relative path
+}
+
+variable "pvt_key" {
+  type        = string
+  description = "Path to private key"
+}
+
+variable "do_spaces_region" {
+  type        = string
+  description = "" # TODO
+}
+
+variable "do_spaces_access_key" {
+  type        = string
+  description = "" # TODO
+}
+
+variable "do_spaces_secret_key" {
+  type        = string
+  description = "" # TODO
 }

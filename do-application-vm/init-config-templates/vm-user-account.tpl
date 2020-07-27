@@ -14,9 +14,10 @@ users:
       ${authorized_ssh_keys}
 
 runcmd:
-  # Copy root's AWS credentials to new user
-  - cp -r /root/.aws /home/ubuntu/.aws
   # Allow the new user to log in
   - sed -i -e '$aAllowUsers ubuntu' /etc/ssh/sshd_config
   # Restart SSH service to apply new configuration
   - service ssh restart
+  # Create AWS config folder
+  - mkdir /home/ubuntu/.aws/
+  - chown -R ubuntu /home/ubuntu/.aws/
