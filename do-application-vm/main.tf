@@ -1,6 +1,6 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# DIGITALOCEAN DROPLET (VM) WITH STANDARD USER AND APPLICATION CONFIG TO RUN DOCKERIZED APPLICATION WITH IMAGES
-# LOCATED IN AMAZON ECR AND DOCKER-COMPOSE FILES LOCATED IN S3 BUCKET.
+# DIGITALOCEAN DROPLET (VM) WITH STANDARD USER ACCOUNT AND APPLICATION CONFIG TO RUN DOCKERIZED APPLICATION WITH IMAGES
+# LOCATED IN AMAZON ECR AND DOCKER-COMPOSE FILES LOCATED IN DIGITALOCEAN SPACES BUCKET.
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # ------------------------------------------------------------------------------
@@ -15,6 +15,38 @@ resource "digitalocean_droplet" "droplet" {
   private_networking = true
   user_data          = data.template_cloudinit_config.init_config.rendered
   ssh_keys           = [for ssh_key in var.authorized_ssh_keys : ssh_key.id]
+
+  # Establish SSH connection
+  connection {
+    host        = self.ipv4_address
+    user        = "ubuntu"
+    type        = "ssh"
+    private_key = file(var.pvt_key)
+  }
+
+  # Create s3cmd config
+  provisioner "file" {
+    content     = data.template_file.s3cmd_config.rendered
+    destination = "/home/ubuntu/.s3cfg"
+  }
+
+  # Start application
+  provisioner "remote-exec" {
+    inline = ["start-application"]
+  }
+}
+
+# ------------------------------------------------------------------------------
+# s3cmd config file
+# ------------------------------------------------------------------------------
+data "template_file" "s3cmd_config" {
+  template = file("${path.module}/program-config-templates/s3cmd-config.tpl")
+
+  vars = {
+    region_slug = var.do_spaces_region
+    access_key  = var.do_spaces_access_key
+    secret_key  = var.do_spaces_secret_key
+  }
 }
 
 # ------------------------------------------------------------------------------
@@ -27,27 +59,27 @@ data "template_cloudinit_config" "init_config" {
   base64_encode = false
 
   part {
-    filename     = "aws-cli-config.cfg"
-    content_type = "text/cloud-config"
-    content      = data.template_file.aws_cli_config.rendered
-  }
-
-  part {
     filename     = "vm-access-config.cfg"
     content_type = "text/cloud-config"
     content      = data.template_file.vm_access_config.rendered
   }
 
   part {
-    filename     = "vm-user-init.cfg"
+    filename     = "vm-user-account-init.cfg"
     content_type = "text/cloud-config"
     content      = data.template_file.vm_user_init_config.rendered
   }
 
   part {
-    filename     = "app-vm-bootstrap.cfg"
+    filename     = "common-env-vars.tpl"
     content_type = "text/cloud-config"
-    content      = var.app_start_script
+    content      = data.template_file.common_env_vars_config.rendered
+  }
+
+  part {
+    filename     = "extra-app-config.cfg"
+    content_type = "text/cloud-config"
+    content      = var.extra_cloud_init_config
   }
 }
 
@@ -59,16 +91,15 @@ data "template_file" "vm_access_config" {
 }
 
 # ------------------------------------------------------------------------------
-# CLOUD INIT CONFIG SCRIPT TO CONFIGURE CREDENTIALS AND OTHER SETTINGS
-# IN AWS CLI PROGRAM.
+# CLOUD INIT CONFIG SCRIPT TO SET COMMON ENVIRONMENT VARIABLES
 # ------------------------------------------------------------------------------
-data "template_file" "aws_cli_config" {
-  template = file("${path.module}/init-config-templates/aws-cli-setup.tpl")
+data "template_file" "common_env_vars_config" {
+  template = file("${path.module}/init-config-templates/common-env-vars.tpl")
 
   vars = {
-    aws_region            = var.aws_config.region
-    aws_access_key_id     = var.aws_config.access_key_id
-    aws_secret_access_key = var.aws_config.secret_access_key
+    ecr_base_url              = var.ecr_base_url
+    compose_files_bucket_path = var.compose_files_bucket_path
+    bucket_name               = var.project_bucket_name
   }
 }
 
@@ -77,7 +108,7 @@ data "template_file" "aws_cli_config" {
 # SSH KEYS ARE SPECIFIED.
 # ------------------------------------------------------------------------------
 data "template_file" "vm_user_init_config" {
-  template = file("${path.module}/init-config-templates/vm-user.tpl")
+  template = file("${path.module}/init-config-templates/vm-user-account.tpl")
 
   vars = {
     authorized_ssh_keys = yamlencode([for ssh_key in var.authorized_ssh_keys : ssh_key.public_key])
