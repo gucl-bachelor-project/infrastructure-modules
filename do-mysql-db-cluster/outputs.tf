@@ -1,6 +1,7 @@
 output "db_cluster" {
   value       = digitalocean_database_cluster.mysql_cluster
   description = "Created MySQL DB cluster"
+  sensitive   = true
 }
 
 output "dbs" {
