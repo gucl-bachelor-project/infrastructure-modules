@@ -16,6 +16,7 @@ resource "digitalocean_droplet" "droplet" {
   user_data          = data.template_cloudinit_config.init_config.rendered
   ssh_keys           = [for ssh_key in var.authorized_ssh_keys : ssh_key.id]
 
+  # Establish SSH connection
   connection {
     host        = self.ipv4_address
     user        = "ubuntu"
@@ -23,15 +24,28 @@ resource "digitalocean_droplet" "droplet" {
     private_key = file(var.pvt_key)
   }
 
-  # TODO
+  # Create s3cmd config
   provisioner "file" {
     content     = data.template_file.s3cmd_config.rendered
     destination = "/home/ubuntu/.s3cfg"
   }
 
-  # TODO
+  # Start application
   provisioner "remote-exec" {
     inline = ["start-application"]
+  }
+}
+
+# ------------------------------------------------------------------------------
+# s3cmd config file
+# ------------------------------------------------------------------------------
+data "template_file" "s3cmd_config" {
+  template = file("${path.module}/program-config-templates/s3cmd-config.tpl")
+
+  vars = {
+    region_slug = var.do_spaces_region
+    access_key  = var.do_spaces_access_key
+    secret_key  = var.do_spaces_secret_key
   }
 }
 
@@ -76,6 +90,9 @@ data "template_file" "vm_access_config" {
   template = file("${path.module}/init-config-templates/vm-access-config.tpl")
 }
 
+# ------------------------------------------------------------------------------
+# CLOUD INIT CONFIG SCRIPT TO SET COMMON ENVIRONMENT VARIABLES
+# ------------------------------------------------------------------------------
 data "template_file" "common_env_vars_config" {
   template = file("${path.module}/init-config-templates/common-env-vars.tpl")
 
@@ -87,11 +104,6 @@ data "template_file" "common_env_vars_config" {
 }
 
 # ------------------------------------------------------------------------------
-# CLOUD INIT CONFIG SCRIPT TO CONFIGURE CREDENTIALS AND OTHER SETTINGS
-# IN AWS CLI PROGRAM.
-# ------------------------------------------------------------------------------
-
-# ------------------------------------------------------------------------------
 # CLOUD INIT CONFIG SCRIPT TO CONFIGURE SSH ACCESS TO VM IF AUTHORIZED
 # SSH KEYS ARE SPECIFIED.
 # ------------------------------------------------------------------------------
@@ -100,15 +112,5 @@ data "template_file" "vm_user_init_config" {
 
   vars = {
     authorized_ssh_keys = yamlencode([for ssh_key in var.authorized_ssh_keys : ssh_key.public_key])
-  }
-}
-
-data "template_file" "s3cmd_config" {
-  template = file("${path.module}/program-config-templates/s3cmd-config.tpl")
-
-  vars = {
-    region_slug = var.do_spaces_region
-    access_key  = var.do_spaces_access_key
-    secret_key  = var.do_spaces_secret_key
   }
 }

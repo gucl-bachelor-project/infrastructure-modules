@@ -18,6 +18,3 @@ runcmd:
   - sed -i -e '$aAllowUsers ubuntu' /etc/ssh/sshd_config
   # Restart SSH service to apply new configuration
   - service ssh restart
-  # Create AWS config folder
-  - mkdir /home/ubuntu/.aws/
-  - chown -R ubuntu /home/ubuntu/.aws/
